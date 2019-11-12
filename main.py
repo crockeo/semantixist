@@ -128,6 +128,8 @@ class Composer(ComposerRoot):
         if rule == CompositionRule.FunctionApplication:
             return FunctionApplicationComposer().compose(left_node, right_node)
 
+        raise ValueError('Expected nodes to be composable by any composition rule')
+
 
 class Node:
     def __init__(self, value=None, type=None, left_node=None, right_node=None):
@@ -159,19 +161,30 @@ class Node:
         return self._type
 
 
-mary = Entity('Mary')
-john = Entity('John')
-
-a = Function('x', [Function('y', 'y likes x')])
-
-mary_node = Node(value=mary, type=Type('e'))
-sneezed_node = Node(
-    value=Function('x', 'x sneezed'),
-    type=Type(Type('e'), Type('t')),
+# Structure & lexicon for 'Mary likes John'
+mary_likes_john = Node(
+    left_node=Node(
+        value=Entity('Mary'),
+        type=Type('e'),
+    ),
+    right_node=Node(
+        left_node=Node(
+            value=Function(
+                'x',
+                [
+                    Function(
+                        'y',
+                        'y likes x',
+                    ),
+                ],
+            ),
+            type=Type(Type('e'), Type(Type('e'), Type('t'))),
+        ),
+        right_node=Node(
+            value=Entity('John'),
+            type=Type('e'),
+        ),
+    ),
 )
-combined_node = Node(
-    left_node=mary_node,
-    right_node=sneezed_node,
-)
 
-print(combined_node, ':', combined_node.get_type())
+print(mary_likes_john.get_value(), ':', mary_likes_john.get_type())
