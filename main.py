@@ -94,26 +94,84 @@ class CompositionRule(Enum):
     FunctionApplication = 0
 
 
-def infer_composition_rule(type1: Type, type2: Type) -> CompositionRule:
-    """
-    Infers the way in which we want to compose nodes in our semantic tree based on their types.
-    """
+class ComposerRoot:
+    def compose(self, left_node, right_node):
+        raise NotImplementedError()
 
-    if type1.from_type == type2 or type2.from_type == type1:
-        return CompositionRule.FunctionApplication
+
+class FunctionApplicationComposer(ComposerRoot):
+    def compose(self, left_node, right_node):
+        left_value = left_node.get_value()
+        left_type = left_node.get_type()
+        right_value = right_node.get_value()
+        right_type = right_node.get_type()
+
+        if left_type.from_type == right_type:
+            return left_value.apply(right_value), left_type.to_type
+        if right_type.from_type == left_type:
+            return right_value.apply(left_value), right_type.to_type
+
+        raise ValueError(
+            'Expected nodes to be composable by FunctionApplication')
+
+
+class Composer(ComposerRoot):
+    def _infer_composition_rule(self, type1: Type, type2: Type) -> CompositionRule:
+        if type1.from_type == type2 or type2.from_type == type1:
+            return CompositionRule.FunctionApplication
+
+    def compose(self, left_node, right_node):
+        left_type = left_node.get_type()
+        right_type = right_node.get_type()
+        rule = self._infer_composition_rule(left_type, right_type)
+
+        if rule == CompositionRule.FunctionApplication:
+            return FunctionApplicationComposer().compose(left_node, right_node)
+
+
+class Node:
+    def __init__(self, value=None, type=None, left_node=None, right_node=None):
+        self._value = value
+        self._type = type
+        self._left_node = left_node
+        self._right_node = right_node
+
+    def __str__(self):
+        return str(self.get_value())
+
+    def __repr__(self):
+        return str(self)
+
+    def _derive(self):
+        """
+        Derives self._value and self._type from self._left_node and self._right_node.
+        """
+        self._value, self._type = Composer().compose(self._left_node, self._right_node)
+
+    def get_value(self):
+        if self._value is None:
+            self._derive()
+        return self._value
+
+    def get_type(self):
+        if self._type is None:
+            self._derive()
+        return self._type
+
 
 mary = Entity('Mary')
 john = Entity('John')
 
 a = Function('x', [Function('y', 'y likes x')])
 
-print(a.apply(mary).apply(john))
-print(CompositionRule.FunctionApplication)
-print(Type('e'), Type('e', 't'))
-
-print(
-    infer_composition_rule(
-        Type(Type('e'), Type('t')),
-        Type('e'),
-    ),
+mary_node = Node(value=mary, type=Type('e'))
+sneezed_node = Node(
+    value=Function('x', 'x sneezed'),
+    type=Type(Type('e'), Type('t')),
 )
+combined_node = Node(
+    left_node=mary_node,
+    right_node=sneezed_node,
+)
+
+print(combined_node, ':', combined_node.get_type())
