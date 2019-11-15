@@ -1,47 +1,53 @@
-class Function:
-    """
-    Basic implemenetation of a lambda function
-    """
+from typing import Any
+from typing import List
+from typing import Optional
+import uuid
 
-    def __init__(self, variable, tokens):
-        self.variable = variable
-        if isinstance(tokens, str):
-            self.tokens = tokens.split()
-        else:
-            self.tokens = tokens
+
+class Token:
+    """
+    Superclass for each token that can appear in a sentence.
+    """
 
     def __str__(self):
-        return '[{}{}. {}]'.format(
-            'λ',
-            self.variable,
-            ' '.join([str(token) for token in self.tokens]),
-        )
+        return self.serialize()
 
     def __repr__(self):
-        return str(self)
+        return self.serialize()
 
-    def replace(self, variable, value):
-        tokens = []
-        for token in self.tokens:
-            if isinstance(token, str):
-                if token == variable:
-                    tokens.append(value)
-                else:
-                    tokens.append(token)
-            else:
-                tokens.append(token.replace(variable, value))
+    def replace(self, variable: 'Variable', value: 'Token') -> 'Token':
+        raise NotImplementedError('Token.replace not implemented')
 
-        return Function(self.variable, tokens)
+    def serialize(self) -> str:
+        raise NotImplementedError('Token.serialize not implemented')
 
-    def apply(self, value):
-        tokens = self.replace(self.variable, value).tokens
-        if len(tokens) == 1:
-            return tokens[0]
+
+class Variable(Token):
+    """
+    Represents a Variable within a lambda function. Uses UUIDs to maintain uniqueness across all
+    functions.
+    """
+
+    def __init__(self):
+        self.uuid = uuid.uuid4()
+
+    def __eq__(self, other):
+        if not isinstance(other, Variable):
+            return False
         else:
-            return tokens
+            return self.uuid == other.uuid
+
+    def replace(self, variable: 'Variable', value: Token) -> Token:
+        if self == variable:
+            return value
+        else:
+            return self
+
+    def serialize(self) -> str:
+        return 'x'
 
 
-class Entity:
+class Entity(Token):
     """
     Explicit Entity type, so that we can separate them from variable holes.
     """
@@ -49,14 +55,58 @@ class Entity:
     def __init__(self, value):
         self.value = value
 
-    def __str__(self):
-        return self.value
+    def replace(self, variable: Variable, value: Token) -> Token:
+        return self
+
+    def serialize(self) -> str:
+        return str(self.value)
+
+
+class Statement(Token):
+    """
+    A list of tokens that collectively represent a statement.
+    """
+
+    def __init__(self, tokens: List[Token]):
+        self.tokens = tokens
+
+    def replace(self, variable: Variable, value: Token) -> Token:
+        replaced_tokens = [token.replace(variable, value)
+                           for token in self.tokens]
+        if len(replaced_tokens) == 1 and isinstance(replaced_tokens[0], Function):
+            return replaced_tokens[0]
+        return Statement(replaced_tokens)
+
+    def serialize(self) -> str:
+        return ' '.join([token.serialize() for token in self.tokens])
+
+
+class Function(Token):
+    """
+    Basic implemenetation of a lambda function
+    """
+
+    def __init__(self, variable: Variable, statement: Statement):
+        self.variable = variable
+        self.statement = statement
 
     def __repr__(self):
         return str(self)
 
-    def replace(self, variable, value):
-        return self
+    def replace(self, variable: Variable, value: Token) -> Token:
+        replaced_statement = self.statement.replace(variable, value)
+        if variable == self.variable:
+            return replaced_statement
+        return Function(self.variable, replaced_statement)
+
+    def serialize(self) -> str:
+        return '[λ{}. {}]'.format(
+            self.variable.serialize(),
+            self.statement.serialize(),
+        )
+
+    def apply(self, value: Token) -> Token:
+        return self.replace(self.variable, value)
 
 
 class Type:
@@ -64,7 +114,7 @@ class Type:
     Wraps around types to explicate the kinds of things members of a semantic tree can be.
     """
 
-    def __init__(self, from_type, to_type=None):
+    def __init__(self, from_type: 'Type', to_type: Optional['Type'] = None):
         self.from_type = from_type
         self.to_type = to_type
 

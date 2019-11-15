@@ -1,7 +1,11 @@
 from enum import Enum
 
+from lib.core import Entity
 from lib.core import Function
+from lib.core import Statement
 from lib.core import Type
+from lib.core import Variable
+
 
 class CompositionRule(Enum):
     """
@@ -24,6 +28,8 @@ class FunctionApplicationComposer(ComposerRoot):
         right_value = right_node.get_value()
         right_type = right_node.get_type()
 
+        print('l {}; r {}'.format(left_value, right_value))
+
         if left_type.from_type == right_type:
             return left_value.apply(right_value), left_type.to_type
         if right_type.from_type == left_type:
@@ -41,17 +47,17 @@ class PredicateModificationComposer(ComposerRoot):
         right_type = right_node.get_type()
 
         if left_type != right_type or right_type != Type(Type('e'), Type('t')):
-            raise ValueError('Expected noes to be composable by PredicateModification')
+            raise ValueError(
+                'Expected noes to be composable by PredicateModification')
 
-        # TODO: This is broken, if either of the nodes have 'x' inside of them, then it'll be
-        # replaced with this x that we use instead.
+        new_var = Variable()
         return Function(
-            'x',
-            [
-                ' '.join(left_value.apply('x')),
-                'and',
-                ' ' .join(right_value.apply('x')),
-            ]
+            new_var,
+            Statement([
+                left_value.apply(new_var),
+                Entity('and'),
+                right_value.apply(new_var),
+            ]),
         ), Type(Type('e'), Type('t'))
 
 
@@ -72,4 +78,5 @@ class Composer(ComposerRoot):
         if rule == CompositionRule.PredicateModification:
             return PredicateModificationComposer().compose(left_node, right_node)
 
-        raise ValueError('Expected nodes to be composable by any composition rule')
+        raise ValueError(
+            'Expected nodes to be composable by any composition rule')
