@@ -34,8 +34,7 @@ class Variable(Token):
     def __eq__(self, other):
         if not isinstance(other, Variable):
             return False
-        else:
-            return self.uuid == other.uuid
+        return self.uuid == other.uuid
 
     def replace(self, variable: 'Variable', value: Token) -> Token:
         if self == variable:
@@ -55,6 +54,11 @@ class Entity(Token):
     def __init__(self, value):
         self.value = value
 
+    def __eq__(self, other):
+        if not isinstance(other, Entity):
+            return False
+        return self.value == other.value
+
     def replace(self, variable: Variable, value: Token) -> Token:
         return self
 
@@ -69,6 +73,19 @@ class Statement(Token):
 
     def __init__(self, tokens: List[Token]):
         self.tokens = tokens
+
+    def __eq__(self, other):
+        if not isinstance(other, Statement):
+            return False
+
+        if len(self.tokens) != len(other.tokens):
+            return False
+
+        for i in range(len(self.tokens)):
+            if self.tokens[i] != other.tokens[i]:
+                return False
+
+        return True
 
     def replace(self, variable: Variable, value: Token) -> Token:
         replaced_tokens = [token.replace(variable, value)
@@ -90,8 +107,10 @@ class Function(Token):
         self.variable = variable
         self.statement = statement
 
-    def __repr__(self):
-        return str(self)
+    def __eq__(self, other):
+        if not isinstance(other, Function):
+            return False
+        return self.variable == other.variable and self.statement == other.statement
 
     def replace(self, variable: Variable, value: Token) -> Token:
         replaced_statement = self.statement.replace(variable, value)
